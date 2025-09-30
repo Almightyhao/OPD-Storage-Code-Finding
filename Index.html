@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>儲位查詢 | Storage Code Finder</title>
+  <!-- 輕量造型 -->
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#60a5fa; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial;}
+    .wrap{max-width:960px;margin:40px auto;padding:0 16px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:20px}
+    h1{margin:0 0 8px;font-size:22px}
+    .sub{color:var(--muted);margin-bottom:16px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    input[type="text"]{flex:1;min-width:220px;border:1px solid #1f2937;background:#0b1220;color:var(--text);
+      border-radius:12px;padding:12px 14px;font-size:16px;outline:none}
+    input::placeholder{color:#64748b}
+    button{background:var(--accent);border:0;color:#0b1220;padding:12px 16px;border-radius:12px;cursor:pointer;font-weight:700}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .meta{font-size:12px;color:var(--muted);margin-top:10px}
+    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:16px}
+    th,td{padding:12px 10px;border-bottom:1px solid #1f2937;text-align:left}
+    th{font-weight:700;color:#cbd5e1}
+    tr:hover{background:#0b1220}
+    .badge{display:inline-block;background:#0b1220;border:1px solid #1f2937;color:#cbd5e1;border-radius:999px;padding:2px 8px;font-size:12px}
+    .empty{color:var(--muted);padding:24px 8px}
+    .err{color:#fecaca}
+  </style>
+
+  <!-- 讀取 Excel：SheetJS -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <!-- 模糊搜尋：Fuse.js -->
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>儲位查詢</h1>
+      <div class="sub">資料來源會自動抓取 GitHub 上 <span class="badge">main</span> 分支的最新 Excel。</div>
+
+      <div class="row">
+        <input id="q" type="text" placeholder="輸入藥名（支援模糊搜尋與部分關鍵字，例如：『阿奇』、『感冒顆粒』...）" />
+        <button id="reloadBtn" title="重新抓取最新 Excel">重新整理</button>
+      </div>
+      <div id="meta" class="meta"></div>
+      <div id="error" class="meta err"></div>
+
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="width:46%">藥品名稱</th>
+            <th style="width:27%">儲位區</th>
+            <th style="width:27%">庫存區</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="3" class="empty">尚未載入資料…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // 你的 GitHub Raw（main 分支）— 每次都抓最新
+  const RAW_URL = "https://raw.githubusercontent.com/Almightyhao/Storage-Code-Finding/main/Storage%20Code.xlsx";
+
+  // Excel 欄位可能的別名（自動對應）
+  const NAME_KEYS   = ["藥品名稱","品名","藥名","Drug","Name","名稱"];
+  const AREA_KEYS   = ["儲位區","儲位","儲存區","儲區","Storage","Location"];
+  const STOCK_KEYS  = ["庫存區","庫存","庫存區位","Stock","Inventory"];
+
+  const $q = document.getElementById("q");
+  const $tbody = document.getElementById("tbody");
+  const $meta = document.getElementById("meta");
+  const $err = document.getElementById("error");
+  const $reload = document.getElementById("reloadBtn");
+
+  let rows = [];       // 原始清單（標準化鍵名）
+  let fuse = null;     // 模糊搜尋索引
+  let lastUpdated = "";
+
+  function pickKey(obj, candidates) {
+    for (const k of candidates) if (k in obj) return k;
+    // 允許寬鬆匹配（去空白）
+    const keys = Object.keys(obj);
+    for (const cand of candidates.map(c => c.replace(/\s/g,''))) {
+      const hit = keys.find(k => k.replace(/\s/g,'') === cand);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  async function loadExcel() {
+    setLoading(true);
+    $err.textContent = "";
+    try {
+      const url = RAW_URL + "?t=" + Date.now(); // 防止快取
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("讀取 Excel 失敗（HTTP "+res.status+"）");
+      const buf = await res.arrayBuffer();
+
+      const wb = XLSX.read(buf, {type:"array"});
+      const first = wb.SheetNames[0];
+      const sheet = wb.Sheets[first];
+      const json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+
+      if (!json.length) throw new Error("Excel 內容是空的。");
+
+      // 以首列推測欄位名稱
+      const probe = json[0];
+      const kName  = pickKey(probe, NAME_KEYS);
+      const kArea  = pickKey(probe, AREA_KEYS);
+      const kStock = pickKey(probe, STOCK_KEYS);
+
+      if (!kName || !kArea || !kStock) {
+        throw new Error("找不到必要欄位。需要包含「藥品名稱」「儲位區」「庫存區」（或其別名）。");
+      }
+
+      // 標準化
+      rows = json.map(r => ({
+        name:  String(r[kName]  ?? "").trim(),
+        area:  String(r[kArea]  ?? "").trim(),
+        stock: String(r[kStock] ?? "").trim(),
+      })).filter(r => r.name);
+
+      // 建立模糊索引
+      fuse = new Fuse(rows, {
+        includeScore: true,
+        threshold: 0.3,       // 0 精準 ~ 1 寬鬆
+        distance: 200,
+        keys: ["name"]
+      });
+
+      lastUpdated = new Date().toLocaleString();
+      $meta.textContent = `共 ${rows.length} 筆 · 來源：main · 載入時間：${lastUpdated}`;
+      render([]);
+      $q.focus();
+    } catch (e) {
+      console.error(e);
+      $err.textContent = "發生錯誤： " + e.message + "（請確認 Raw 連結存在且可公開讀取）";
+      $tbody.innerHTML = `<tr><td colspan="3" class="empty">無法載入資料</td></tr>`;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function setLoading(is) {
+    $reload.disabled = is;
+    $reload.textContent = is ? "載入中…" : "重新整理";
+  }
+
+  function render(list) {
+    const data = list.length ? list : [];
+    if (!data.length) {
+      $tbody.innerHTML = `<tr><td colspan="3" class="empty">${rows.length ? "請輸入關鍵字開始查詢" : "尚未載入資料…"}</td></tr>`;
+      return;
+    }
+    const html = data.map(r => `
+      <tr>
+        <td>${escapeHTML(r.name)}</td>
+        <td>${escapeHTML(r.area)}</td>
+        <td>${escapeHTML(r.stock)}</td>
+      </tr>
+    `).join("");
+    $tbody.innerHTML = html || `<tr><td colspan="3" class="empty">找不到符合結果</td></tr>`;
+  }
+
+  function escapeHTML(s){
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // 查詢（debounce）
+  let timer = null;
+  $q.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const kw = $q.value.trim();
+      if (!kw) { render([]); return; }
+      const contains = rows.filter(r => r.name.toLowerCase().includes(kw.toLowerCase()));
+      const out = contains.length ? contains : (fuse ? fuse.search(kw).map(x => x.item) : []);
+      render(out);
+    }, 120);
+  });
+
+  $reload.addEventListener("click", loadExcel);
+
+  // 進頁即載
+  loadExcel();
+})();
+</script>
+</body>
+</html>
