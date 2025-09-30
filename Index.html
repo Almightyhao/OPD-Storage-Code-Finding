@@ -27,10 +27,17 @@
     .empty{color:var(--muted);padding:24px 8px}
     .err{color:#fecaca}
   </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>儲位查詢 | Storage Code Finder</title>
+  <style> ... </style>
+
   <!-- 讀取 Excel：SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js"></script>
-  <!-- 模糊搜尋：Fuse.js（可容錯/少打字） -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <!-- 模糊搜尋：Fuse.js -->
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+</head>
+
 </head>
 <body>
   <div class="wrap">
@@ -195,3 +202,4 @@
 </script>
 </body>
 </html>
+
