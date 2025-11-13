@@ -1,4 +1,4 @@
-# 🧾 Storage Code Finder
+# 🧾 OPD Storage Code Finder
 
 門診藥品儲位查詢工具（**0912 儲位更新版**）  
 
