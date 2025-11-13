@@ -3,7 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 
+  [Gemini] 修改標題以反映住院藥局版本 
+-->
 <title>儲位查詢 | Storage Code Finder</title>
+
+<!-- 
+  [Gemini] 新增：網頁 App 圖示 (Web App Icons)
+  請將下面這段程式碼加入到 <head> 標籤內。
+  
+  **重要前提**：
+  您必須將 'OPD.jpg' 檔案上傳到 GitHub 儲存庫的根目錄 (main 分支)。
+  程式會從以下 URL 讀取圖示:
+  https://raw.githubusercontent.com/Almightyhao/OPD-Storage-Code-Finding/main/IPD.jpg
+-->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f172a">
+
+<!-- 適用於 Apple 裝置 (iOS) -->
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Almightyhao/OPD-Storage-Code-Finding/main/OPD.jpg">
+
+<!-- 適用於 Android / 瀏覽器分頁圖示 (Favicon) -->
+<link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/Almightyhao/OPD-Storage-Code-Finding/main/OPD.jpg">
+<link rel="shortcut icon" href="https://raw.githubusercontent.com/Almightyhao/Storage-Code-Finding/main/IPD.jpg">
+<!-- [Gemini] 圖示新增完畢 -->
+
 <style>
 :root {--bg:#0f172a;--card:#111827;--muted:#94a3b8;--text:#e5e7eb;--accent:#60a5fa;}
 *{box-sizing:border-box}
@@ -224,5 +249,6 @@ loadExcel();
 </html>
 </body>
 </html>
+
 
 
