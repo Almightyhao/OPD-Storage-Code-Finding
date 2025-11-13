@@ -25,7 +25,7 @@
 ## 💡 使用方式
 
 1. 開啟網頁  
-   👉 [**Storage Code Finder**](https://almightyhao.github.io/OPD-Storage-Code-Finding/)
+   👉 [**OPD Storage Code Finder**](https://almightyhao.github.io/OPD-Storage-Code-Finding/)
 2. 在輸入框輸入藥名（完整或部分關鍵字）
 3. 點選 **「重新整理」** 可重新抓取最新 Excel
 4. 在搜尋結果左側**勾選**藥品以加入暫存清單  
